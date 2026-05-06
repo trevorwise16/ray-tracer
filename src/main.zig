@@ -22,7 +22,7 @@ pub fn main(init: std.process.Init) !void {
 
     var world = try initWorld(allocator);
     defer world.clear(allocator);
-    const camera = Camera.initialize(400, 16.0 / 9.0, 100, rng);
+    const camera = Camera.initialize(400, 16.0 / 9.0, 100, 50, rng);
     try camera.render(init.io, &world);
 }
 

@@ -11,13 +11,14 @@ pub const Camera = struct {
     img_width: u32,
     samples_per_pixel: u32,
     pixels_sample_scale: f64,
+    max_depth: u32,
     center: Vec3f,
     px00: Vec3f,
     pdu: Vec3f,
     pdv: Vec3f,
     rng: std.Random,
 
-    pub fn initialize(img_width: u32, aspect_ratio: f64, samples_per_pixel: u32, random: std.Random) Camera {
+    pub fn initialize(img_width: u32, aspect_ratio: f64, samples_per_pixel: u32, max_depth: u32, random: std.Random) Camera {
         // img stuff -- integer space
         var img_height: u32 = @intFromFloat(img_width / aspect_ratio);
         img_height = if (img_height > 1) img_height else 1;
@@ -45,6 +46,7 @@ pub const Camera = struct {
             .img_width = img_width,
             .samples_per_pixel = samples_per_pixel,
             .pixels_sample_scale = 1.0 / @as(f64, @floatFromInt(samples_per_pixel)),
+            .max_depth = max_depth,
             .center = camera_center,
             .px00 = px00,
             .pdu = pdu,
@@ -66,7 +68,7 @@ pub const Camera = struct {
                 var color = Vec3f.zero();
                 for (0..self.samples_per_pixel) |_| {
                     const ray = self.getRay(@intCast(i), @intCast(j));
-                    color = color.add(rayColor(ray, world));
+                    color = color.add(self.rayColor(ray, world, self.max_depth));
                 }
                 try writeColor(writer, color.scale(self.pixels_sample_scale));
             }
@@ -86,25 +88,39 @@ pub const Camera = struct {
 
     fn sampleSquare(self: *const Camera) Vec3f {
         return Vec3f.init(
-            utils.randomF64(self.rng),
-            utils.randomF64(self.rng),
+            utils.randomF64(self.rng) - 0.5,
+            utils.randomF64(self.rng) - 0.5,
             0,
         );
     }
+
+    fn rayColor(self: Camera, ray: Ray, world: *const HittableList, depth: u32) Vec3f {
+        if (depth == 0) {
+            return Vec3f.zero();
+        }
+        const interval = Interval{
+            .min = 0.001,
+            .max = std.math.inf(f64),
+        };
+        const hit = world.hit(ray, interval);
+        if (hit) |record| {
+            const direction = record.normal.add(Vec3f.randomUnitInSphere(self.rng));
+            return self.rayColor(Ray{
+                .origin = record.point,
+                .direction = direction,
+            }, world, depth - 1).scale(0.5);
+        }
+        const unit_dir = ray.direction.scale(1.0 / ray.direction.length());
+        const a = 0.5 * (unit_dir.y + 1.0);
+        return Vec3f.init(1.0, 1.0, 1.0).scale(1.0 - a).add(Vec3f.init(0.5, 0.7, 1.0).scale(a));
+    }
 };
 
-fn rayColor(ray: Ray, world: *const HittableList) Vec3f {
-    const interval = Interval{
-        .min = 0.001,
-        .max = std.math.inf(f64),
-    };
-    const hit = world.hit(ray, interval);
-    if (hit) |record| {
-        return record.normal.add(Vec3f.init(1, 1, 1)).scale(0.5);
+pub fn linearToGamma(linear_component: f64) f64 {
+    if (linear_component > 0.0) {
+        return std.math.sqrt(linear_component);
     }
-    const unit_dir = ray.direction.scale(1.0 / ray.direction.length());
-    const a = 0.5 * (unit_dir.y + 1.0);
-    return Vec3f.init(1.0, 1.0, 1.0).scale(1.0 - a).add(Vec3f.init(0.5, 0.7, 1.0).scale(a));
+    return 0.0;
 }
 
 pub fn writeColor(writer: *std.Io.Writer, color: Vec3f) !void {
@@ -113,9 +129,13 @@ pub fn writeColor(writer: *std.Io.Writer, color: Vec3f) !void {
         .max = 0.999,
     };
 
-    const r: u8 = @intFromFloat(256 * interval.clamp(color.x));
-    const g: u8 = @intFromFloat(256 * interval.clamp(color.y));
-    const b: u8 = @intFromFloat(256 * interval.clamp(color.z));
+    const gamma_r = linearToGamma(color.x);
+    const gamma_g = linearToGamma(color.y);
+    const gamma_b = linearToGamma(color.z);
+
+    const r: u8 = @intFromFloat(256 * interval.clamp(gamma_r));
+    const g: u8 = @intFromFloat(256 * interval.clamp(gamma_g));
+    const b: u8 = @intFromFloat(256 * interval.clamp(gamma_b));
 
     try writer.print("{} {} {}\n", .{ r, g, b });
 }

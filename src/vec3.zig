@@ -87,6 +87,28 @@ pub fn Vec3(comptime T: type) type {
             };
         }
 
+        pub fn randomUnitInSphere(random: std.Random) Self {
+            while (true) {
+                const v = Self.randomInRange(random, -1.0, 1.0);
+                const length_squared = v.lengthSquared();
+                if (1.0e-160 < length_squared and length_squared < 1.0) {
+                    // i know i already have length() available
+                    // i'm avoiding recomputing length_squared
+                    // unsure if this is meaningful but felt right
+                    return v.scale(1.0 / std.math.sqrt(length_squared));
+                }
+            }
+        }
+
+        pub fn randomUnitInHemisphere(random: std.Random, normal: Self) Self {
+            const in_sphere = Self.randomUnitInSphere(random);
+            if (in_sphere.dot(normal) > 0.0) {
+                return in_sphere;
+            } else {
+                return in_sphere.negate();
+            }
+        }
+
         pub fn randomInRange(random: std.Random, min: f64, max: f64) Self {
             return Self{
                 .x = utils.randomF64InRange(random, min, max),

@@ -3,6 +3,7 @@ const Vec3f = @import("vec3.zig").Vec3(f64);
 const Sphere = @import("sphere.zig").Sphere;
 const Ray = @import("ray.zig").Ray;
 const HitRecord = @import("types.zig").HitRecord;
+const Material = @import("materials.zig").Material;
 const Allocator = std.mem.Allocator;
 const Interval = @import("interval.zig").Interval;
 
@@ -56,8 +57,9 @@ test "hittable list returns closest hit" {
     var list = HittableList.init();
     defer list.clear(allocator);
 
-    try list.add(allocator, Hittable{ .sphere = Sphere{ .center = Vec3f.init(0, 0, -1), .radius = 0.5 } });
-    try list.add(allocator, Hittable{ .sphere = Sphere{ .center = Vec3f.init(0, 0, -3), .radius = 0.5 } });
+    const mat = Material{ .lambertian = .{ .albedo = Vec3f.init(0.5, 0.5, 0.5) } };
+    try list.add(allocator, Hittable{ .sphere = Sphere{ .center = Vec3f.init(0, 0, -1), .radius = 0.5, .material = mat } });
+    try list.add(allocator, Hittable{ .sphere = Sphere{ .center = Vec3f.init(0, 0, -3), .radius = 0.5, .material = mat } });
 
     const ray = Ray{ .origin = Vec3f.init(0, 0, 0), .direction = Vec3f.init(0, 0, -1) };
     const result = list.hit(ray, Interval{ .min = 0.001, .max = std.math.inf(f64) });
@@ -67,10 +69,12 @@ test "hittable list returns closest hit" {
 }
 
 test "hitting a hittable" {
+    const mat = Material{ .lambertian = .{ .albedo = Vec3f.init(0.5, 0.5, 0.5) } };
     const hittable = Hittable{
         .sphere = Sphere{
             .center = Vec3f.init(0, 0, -1),
             .radius = 0.5,
+            .material = mat,
         },
     };
 
@@ -86,6 +90,7 @@ test "hitting a hittable" {
         .normal = Vec3f.init(0, 0, 1),
         .t = 0.5,
         .front_face = true,
+        .material = mat,
     };
 
     const actual = hit.?;

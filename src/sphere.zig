@@ -3,10 +3,12 @@ const Vec3f = @import("vec3.zig").Vec3(f64);
 const Ray = @import("ray.zig").Ray;
 const HitRecord = @import("types.zig").HitRecord;
 const Interval = @import("interval.zig").Interval;
+const Material = @import("materials.zig").Material;
 
 pub const Sphere = struct {
     center: Vec3f,
     radius: f64,
+    material: Material,
 
     pub fn hit(self: Sphere, ray: Ray, interval: Interval) ?HitRecord {
         const oc = self.center.sub(ray.origin);
@@ -36,14 +38,17 @@ pub const Sphere = struct {
             .normal = if (front_face) normal else normal.scale(-1),
             .t = root,
             .front_face = front_face,
+            .material = self.material,
         };
     }
 };
 
 test "hitting a sphere" {
+    const mat = Material{ .lambertian = .{ .albedo = Vec3f.init(0.5, 0.5, 0.5) } };
     const sphere = Sphere{
         .center = Vec3f.init(0, 0, -1),
         .radius = 0.5,
+        .material = mat,
     };
 
     const ray = Ray{
@@ -58,6 +63,7 @@ test "hitting a sphere" {
         .normal = Vec3f.init(0, 0, 1),
         .t = 0.5,
         .front_face = true,
+        .material = mat,
     };
 
     const actual = hit.?;
@@ -68,6 +74,7 @@ test "miss" {
     const sphere = Sphere{
         .center = Vec3f.init(0, 0, 10),
         .radius = 1,
+        .material = .{ .lambertian = .{ .albedo = Vec3f.init(0.5, 0.5, 0.5) } },
     };
 
     const ray = Ray{
@@ -85,9 +92,11 @@ test "inward and outward normals" {
         .direction = Vec3f.init(0, 0, -1),
     };
 
+    const mat = Material{ .lambertian = .{ .albedo = Vec3f.init(0.5, 0.5, 0.5) } };
     const sphere_outward = Sphere{
         .center = Vec3f.init(0, 0, -1),
         .radius = 0.5,
+        .material = mat,
     };
 
     const hit_outward = sphere_outward.hit(ray, Interval{ .min = 0.001, .max = std.math.inf(f64) }).?;
@@ -97,6 +106,7 @@ test "inward and outward normals" {
     const sphere_inward = Sphere{
         .center = Vec3f.init(0, 0, -1),
         .radius = 2,
+        .material = mat,
     };
 
     const hit_inward = sphere_inward.hit(ray, Interval{ .min = 0.001, .max = std.math.inf(f64) }).?;

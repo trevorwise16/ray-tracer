@@ -58,6 +58,14 @@ pub fn Vec3(comptime T: type) type {
             };
         }
 
+        pub fn mul(self: Self, other: Self) Self {
+            return Self{
+                .x = self.x * other.x,
+                .y = self.y * other.y,
+                .z = self.z * other.z,
+            };
+        }
+
         pub fn scale(self: Self, scalar: T) Self {
             return Self{
                 .x = self.x * scalar,
@@ -70,6 +78,14 @@ pub fn Vec3(comptime T: type) type {
             return self.x * other.x + self.y * other.y + self.z * other.z;
         }
 
+        pub fn cross(self: Self, other: Self) Self {
+            return Self{
+                .x = self.y * other.z - self.z * other.y,
+                .y = self.z * other.x - self.x * other.z,
+                .z = self.x * other.y - self.y * other.x,
+            };
+        }
+
         pub fn unit(self: Self) Self {
             const len = self.length();
             return Self{
@@ -79,12 +95,9 @@ pub fn Vec3(comptime T: type) type {
             };
         }
 
-        pub fn randomUnit(random: std.Random) Self {
-            return Self{
-                .x = utils.randomF64(random),
-                .y = utils.randomF64(random),
-                .z = utils.randomF64(random),
-            };
+        pub fn nearZero(self: Self) bool {
+            const s = 1.0e-8;
+            return (@abs(self.x) < s) and (@abs(self.y) < s) and (@abs(self.z) < s);
         }
 
         pub fn randomUnitInSphere(random: std.Random) Self {
@@ -109,12 +122,36 @@ pub fn Vec3(comptime T: type) type {
             }
         }
 
+        pub fn randomInUnitDisk(random: std.Random) Self {
+            while (true) {
+                const v = Self{
+                    .x = utils.randomF64InRange(random, -1.0, 1.0),
+                    .y = utils.randomF64InRange(random, -1.0, 1.0),
+                    .z = 0,
+                };
+                if (v.lengthSquared() < 1.0) {
+                    return v;
+                }
+            }
+        }
+
         pub fn randomInRange(random: std.Random, min: f64, max: f64) Self {
             return Self{
                 .x = utils.randomF64InRange(random, min, max),
                 .y = utils.randomF64InRange(random, min, max),
                 .z = utils.randomF64InRange(random, min, max),
             };
+        }
+
+        pub fn reflect(v: Self, n: Self) Self {
+            return v.sub(n.scale(2.0 * v.dot(n)));
+        }
+
+        pub fn refract(uv: Self, n: Self, etai_over_etat: f64) Self {
+            const cos_theta: f64 = @min(uv.scale(-1).dot(n), 1.0);
+            const r_out_perp = uv.add(n.scale(cos_theta)).scale(etai_over_etat);
+            const r_out_parallel = n.scale(-std.math.sqrt(@abs(1.0 - r_out_perp.lengthSquared())));
+            return r_out_perp.add(r_out_parallel);
         }
     };
 }
@@ -134,4 +171,20 @@ test "basic Vec3 operations" {
 
     const a = Vec3(f64).init(2.0, 2.0, -1.0);
     std.debug.assert(a.length() == 3.0);
+}
+
+test "near zero" {
+    const v1 = Vec3(f64).init(1.0e-9, 0.0, 0.0);
+    const v2 = Vec3(f64).init(0.0, 1.0e-9, 0.0);
+    const v3 = Vec3(f64).init(0.0, 0.0, 1.0e-9);
+    const v4 = Vec3(f64).init(1.0e-7, 0.0, 0.0);
+    const v5 = Vec3(f64).init(-1.0e-9, -1.0e-9, -1.0e-9);
+    const z = Vec3(f64).zero();
+
+    try std.testing.expect(v1.nearZero());
+    try std.testing.expect(v2.nearZero());
+    try std.testing.expect(v3.nearZero());
+    try std.testing.expect(!v4.nearZero());
+    try std.testing.expect(v5.nearZero());
+    try std.testing.expect(z.nearZero());
 }

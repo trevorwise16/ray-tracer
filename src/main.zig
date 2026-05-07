@@ -12,9 +12,7 @@ const ppm = @import("ppm.zig");
 const RowCounter = std.atomic.Value(u32);
 
 pub fn main(init: std.process.Init) !void {
-    const allocator = init.arena.allocator();
-
-    try run(init.io, allocator);
+    try run(init.io, init.arena.allocator());
 }
 
 pub fn run(io: Io, allocator: Allocator) !void {
@@ -26,6 +24,8 @@ pub fn run(io: Io, allocator: Allocator) !void {
     var world = try worlds.complexSpheres(allocator, rng);
     defer world.clear(allocator);
 
+    // we need to collect all thread results into a single buffer
+    // writing these out to a file from threads would be a pain
     const buffer = try allocator.alloc(Vec3f, camera.img_width * camera.img_height);
     defer allocator.free(buffer);
 
@@ -43,9 +43,7 @@ pub fn run(io: Io, allocator: Allocator) !void {
         threads[i] = t;
     }
 
-    for (threads) |t| {
-        t.join();
-    }
+    for (threads) |t| t.join();
 
     try ppm.writeBuffer(io, buffer, camera.img_height, camera.img_width);
 }

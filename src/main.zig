@@ -8,17 +8,24 @@ const worlds = @import("worlds.zig");
 const Vec3f = @import("vec3.zig").Vec3(f64);
 const HittableList = @import("hittable.zig").HittableList;
 const ppm = @import("ppm.zig");
+const config = @import("config.zig");
+const Config = config.Config;
 
 const RowCounter = std.atomic.Value(u32);
 
 pub fn main(init: std.process.Init) !void {
-    try run(init.io, init.arena.allocator());
+    const allocator = init.arena.allocator();
+    const conf = try config.parseArgs(allocator, init.minimal.args);
+    try run(init.io, allocator, conf);
 }
 
-pub fn run(io: Io, allocator: Allocator) !void {
-    const num_threads = try std.Thread.getCpuCount() - 1;
-    var row_counter = RowCounter.init(0);
-    var prng = initRng(io);
+pub fn run(io: Io, allocator: Allocator, conf: Config) !void {
+    const num_threads = conf.num_threads orelse try std.Thread.getCpuCount() - 1;
+    std.debug.print("using {d} threads\n", .{num_threads});
+
+    var seed = conf.seed orelse randomSeed(io);
+
+    var prng = std.Random.DefaultPrng.init(seed);
     const rng = prng.random();
 
     const camera = initCamera();
@@ -30,6 +37,7 @@ pub fn run(io: Io, allocator: Allocator) !void {
     const buffer = try allocator.alloc(Vec3f, camera.img_width * camera.img_height);
     defer allocator.free(buffer);
 
+    var row_counter = RowCounter.init(0);
     const threads = try allocator.alloc(std.Thread, num_threads);
     defer allocator.free(threads);
 
@@ -39,7 +47,7 @@ pub fn run(io: Io, allocator: Allocator) !void {
     defer rows_node.end();
 
     for (0..num_threads) |i| {
-        const seed = rng.int(u64);
+        seed = rng.int(u64);
         const t = try std.Thread.spawn(.{}, runThread, .{ seed, &camera, &world, &row_counter, buffer, &rows_node });
         threads[i] = t;
     }
@@ -83,8 +91,8 @@ fn initBasicCamera() Camera {
     return Camera.initialize(400, 16.0 / 9.0, 100, 50, 20, lookfrom, lookat, vup, 0.0, 3.4);
 }
 
-fn initRng(io: Io) std.Random.DefaultPrng {
-    var seed: u64 = undefined;
-    io.random(std.mem.asBytes(&seed));
-    return std.Random.DefaultPrng.init(seed);
+fn randomSeed(io: Io) u64 {
+    var s: u64 = undefined;
+    io.random(std.mem.asBytes(&s));
+    return s;
 }

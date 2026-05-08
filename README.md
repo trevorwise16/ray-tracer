@@ -2,7 +2,7 @@
 
 Behold!
 
-![Final render](img/thread_test.png)
+![Final render](img/final.png)
 
 This is my implementation of Ray Tracing in One Weekend.
 

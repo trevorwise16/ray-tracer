@@ -12,6 +12,36 @@ in a few ways:
 - No abstract classes for materials/hittables. Instead I use a tagged union strategy.
 - Added multithreading on render hot loop. Anecdotal 12-15x speedup.
 
+## Benchmarking
+
+I ran a basic benchmark here for curiosity's sake.
+
+```
+Benchmark 1: ./zig-out/bin/ray_tracer 42 13 > /dev/null
+  Time (mean ± σ):     64.031 s ±  0.271 s    [User: 817.965 s, System: 1.238 s]
+  Range (min … max):   63.761 s … 64.416 s    5 runs
+```
+
+Steps to produce:
+
+```bash
+zig build -Doptimize=ReleaseFast
+
+hyperfine --warmup 1 --runs 5 './zig-out/bin/ray_tracer 42 13 > /dev/null'
+```
+
+Specs:
+
+System:
+- Apple M4 Pro (10P + 4E cores)- 24GB Mem
+- macOS Sequoia 15.6.1
+- Zig 0.16.0
+
+Build:
+- ReleaseFast
+- 13 threads
+- consistent seed = 42
+
 ## Comments on Multithreading
 
 I think my multithreading implementation was reasonably simple.

@@ -18,7 +18,8 @@ pub fn main(init: std.process.Init) !void {
 pub fn run(io: Io, allocator: Allocator) !void {
     const num_threads = try std.Thread.getCpuCount() - 1;
     var row_counter = RowCounter.init(0);
-    const rng = initRng(io);
+    var prng = initRng(io);
+    const rng = prng.random();
 
     const camera = initCamera();
     var world = try worlds.complexSpheres(allocator, rng);
@@ -48,7 +49,14 @@ pub fn run(io: Io, allocator: Allocator) !void {
     try ppm.writeBuffer(io, buffer, camera.img_height, camera.img_width);
 }
 
-pub fn runThread(seed: u64, camera: *const Camera, world: *const HittableList, row_counter: *RowCounter, buffer: []Vec3f, rows_node: *const std.Progress.Node) void {
+pub fn runThread(
+    seed: u64,
+    camera: *const Camera,
+    world: *const HittableList,
+    row_counter: *RowCounter,
+    buffer: []Vec3f,
+    rows_node: *const std.Progress.Node,
+) void {
     var prng = std.Random.DefaultPrng.init(seed);
     const rng = prng.random();
     var row_idx = row_counter.fetchAdd(1, .monotonic);
@@ -75,9 +83,8 @@ fn initBasicCamera() Camera {
     return Camera.initialize(400, 16.0 / 9.0, 100, 50, 20, lookfrom, lookat, vup, 0.0, 3.4);
 }
 
-fn initRng(io: Io) std.Random {
+fn initRng(io: Io) std.Random.DefaultPrng {
     var seed: u64 = undefined;
     io.random(std.mem.asBytes(&seed));
-    var prng = std.Random.DefaultPrng.init(seed);
-    return prng.random();
+    return std.Random.DefaultPrng.init(seed);
 }

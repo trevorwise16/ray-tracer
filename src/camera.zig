@@ -28,7 +28,18 @@ pub const Camera = struct {
     pdu: Vec3f,
     pdv: Vec3f,
 
-    pub fn initialize(img_width: u32, aspect_ratio: f64, samples_per_pixel: u32, max_depth: u32, vfov: f64, lookfrom: Vec3f, lookat: Vec3f, vup: Vec3f, defocus_angle: f64, focus_dist: f64) Camera {
+    pub fn initialize(
+        img_width: u32,
+        aspect_ratio: f64,
+        samples_per_pixel: u32,
+        max_depth: u32,
+        vfov: f64,
+        lookfrom: Vec3f,
+        lookat: Vec3f,
+        vup: Vec3f,
+        defocus_angle: f64,
+        focus_dist: f64,
+    ) Camera {
         // img stuff -- integer space
         var img_height: u32 = @intFromFloat(img_width / aspect_ratio);
         img_height = if (img_height > 1) img_height else 1;
@@ -86,29 +97,16 @@ pub const Camera = struct {
         };
     }
 
-    pub fn render(self: *const Camera, rng: std.Random, io: Io, world: *const HittableList) !void {
-        var buf: [4096]u8 = undefined;
-        var stdout = Io.File.stdout().writer(io, &buf);
-        const writer = &stdout.interface;
+    pub fn renderRowToBuffer(
+        self: *const Camera,
+        rng: std.Random,
+        world: *const HittableList,
+        row: u32,
+        buffer: []Vec3f,
+    ) void {
+        // std.debug.assert(buffer.len == self.img_width);
+        // std.debug.assert(row < self.img_height);
 
-        try writer.print("P3\n{} {}\n255\n", .{ self.img_width, self.img_height });
-
-        for (0..self.img_height) |j| {
-            // std.debug.print("lines remaining: {}\n", .{img_height - j});
-            for (0..self.img_width) |i| {
-                var color = Vec3f.zero();
-                for (0..self.samples_per_pixel) |_| {
-                    const ray = self.getRay(rng, @intCast(i), @intCast(j));
-                    color = color.add(self.rayColor(rng, ray, world, self.max_depth));
-                }
-                try writeColor(writer, color.scale(self.pixels_sample_scale));
-            }
-        }
-
-        try writer.flush();
-    }
-
-    pub fn renderRowToBuffer(self: *const Camera, rng: std.Random, world: *const HittableList, row: u32, buffer: []Vec3f) void {
         for (0..self.img_width) |i| {
             var color = Vec3f.zero();
             for (0..self.samples_per_pixel) |_| {
@@ -119,7 +117,12 @@ pub const Camera = struct {
         }
     }
 
-    fn getRay(self: *const Camera, rng: std.Random, i: u32, j: u32) Ray {
+    fn getRay(
+        self: *const Camera,
+        rng: std.Random,
+        i: u32,
+        j: u32,
+    ) Ray {
         const offset = self.sampleSquare(rng);
         const px_sample = self.px00.add(self.pdu.scale(i + offset.x)).add(self.pdv.scale(j + offset.y));
 
@@ -145,7 +148,13 @@ pub const Camera = struct {
         );
     }
 
-    fn rayColor(self: Camera, rng: std.Random, ray: Ray, world: *const HittableList, depth: u32) Vec3f {
+    fn rayColor(
+        self: Camera,
+        rng: std.Random,
+        ray: Ray,
+        world: *const HittableList,
+        depth: u32,
+    ) Vec3f {
         if (depth == 0) {
             return Vec3f.zero();
         }
@@ -169,26 +178,26 @@ pub const Camera = struct {
     }
 };
 
-pub fn linearToGamma(linear_component: f64) f64 {
-    if (linear_component > 0.0) {
-        return std.math.sqrt(linear_component);
-    }
-    return 0.0;
-}
-
-pub fn writeColor(writer: *std.Io.Writer, color: Vec3f) !void {
-    const interval = Interval{
-        .min = 0.0,
-        .max = 0.999,
-    };
-
-    const gamma_r = linearToGamma(color.x);
-    const gamma_g = linearToGamma(color.y);
-    const gamma_b = linearToGamma(color.z);
-
-    const r: u8 = @intFromFloat(256 * interval.clamp(gamma_r));
-    const g: u8 = @intFromFloat(256 * interval.clamp(gamma_g));
-    const b: u8 = @intFromFloat(256 * interval.clamp(gamma_b));
-
-    try writer.print("{} {} {}\n", .{ r, g, b });
-}
+// pub fn linearToGamma(linear_component: f64) f64 {
+//     if (linear_component > 0.0) {
+//         return std.math.sqrt(linear_component);
+//     }
+//     return 0.0;
+// }
+//
+// pub fn writeColor(writer: *std.Io.Writer, color: Vec3f) !void {
+//     const interval = Interval{
+//         .min = 0.0,
+//         .max = 0.999,
+//     };
+//
+//     const gamma_r = linearToGamma(color.x);
+//     const gamma_g = linearToGamma(color.y);
+//     const gamma_b = linearToGamma(color.z);
+//
+//     const r: u8 = @intFromFloat(256 * interval.clamp(gamma_r));
+//     const g: u8 = @intFromFloat(256 * interval.clamp(gamma_g));
+//     const b: u8 = @intFromFloat(256 * interval.clamp(gamma_b));
+//
+//     try writer.print("{} {} {}\n", .{ r, g, b });
+// }

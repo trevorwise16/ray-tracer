@@ -45,7 +45,6 @@ pub const Camera = struct {
         img_height = if (img_height > 1) img_height else 1;
 
         // viewport consts -- float space
-        // const focal_length = (lookfrom.sub(lookat)).length();
         const theta = utils.degreesToRadians(vfov);
         const h = std.math.tan(theta / 2.0);
         const viewport_height = 2.0 * h * focus_dist;
@@ -56,7 +55,6 @@ pub const Camera = struct {
         const u = vup.cross(w).unit();
         const v = w.cross(u);
 
-        // viewport vectors
         const viewport_u = u.scale(viewport_width);
         const viewport_v = v.scale(-viewport_height);
         const pdu = viewport_u.scale(1.0 / @as(f64, @floatFromInt(img_width)));
@@ -67,7 +65,6 @@ pub const Camera = struct {
             .sub(viewport_u.scale(0.5))
             .sub(viewport_v.scale(0.5));
 
-        // defocus setup
         const defocus_radius = focus_dist * std.math.tan(utils.degreesToRadians(defocus_angle / 2.0));
         const defocus_u = u.scale(defocus_radius);
         const defocus_v = v.scale(defocus_radius);
@@ -104,8 +101,8 @@ pub const Camera = struct {
         row: u32,
         buffer: []Vec3f,
     ) void {
-        // std.debug.assert(buffer.len == self.img_width);
-        // std.debug.assert(row < self.img_height);
+        std.debug.assert(buffer.len == self.img_width);
+        std.debug.assert(row < self.img_height);
 
         for (0..self.img_width) |i| {
             var color = Vec3f.zero();
@@ -123,7 +120,7 @@ pub const Camera = struct {
         i: u32,
         j: u32,
     ) Ray {
-        const offset = self.sampleSquare(rng);
+        const offset = Vec3f.sampleSquare(rng);
         const px_sample = self.px00.add(self.pdu.scale(i + offset.x)).add(self.pdv.scale(j + offset.y));
 
         const ray_origin = if (self.defocus_angle > 0.0) self.defocusDiskSample(rng) else self.center;
@@ -137,15 +134,6 @@ pub const Camera = struct {
     fn defocusDiskSample(self: *const Camera, rng: std.Random) Vec3f {
         const p = Vec3f.randomInUnitDisk(rng);
         return self.center.add(self.defocus_u.scale(p.x)).add(self.defocus_v.scale(p.y));
-    }
-
-    fn sampleSquare(self: *const Camera, rng: std.Random) Vec3f {
-        _ = self;
-        return Vec3f.init(
-            utils.randomF64(rng) - 0.5,
-            utils.randomF64(rng) - 0.5,
-            0,
-        );
     }
 
     fn rayColor(
@@ -166,7 +154,6 @@ pub const Camera = struct {
         if (hit) |record| {
             const scatter = record.material.scatter(rng, &ray, &record);
 
-            // temporary null handling since i don't know what we do later
             if (scatter) |scatter_result| {
                 return scatter_result.attenuation.mul(self.rayColor(rng, scatter_result.scattered, world, depth - 1));
             }
@@ -177,27 +164,3 @@ pub const Camera = struct {
         return Vec3f.init(1.0, 1.0, 1.0).scale(1.0 - a).add(Vec3f.init(0.5, 0.7, 1.0).scale(a));
     }
 };
-
-// pub fn linearToGamma(linear_component: f64) f64 {
-//     if (linear_component > 0.0) {
-//         return std.math.sqrt(linear_component);
-//     }
-//     return 0.0;
-// }
-//
-// pub fn writeColor(writer: *std.Io.Writer, color: Vec3f) !void {
-//     const interval = Interval{
-//         .min = 0.0,
-//         .max = 0.999,
-//     };
-//
-//     const gamma_r = linearToGamma(color.x);
-//     const gamma_g = linearToGamma(color.y);
-//     const gamma_b = linearToGamma(color.z);
-//
-//     const r: u8 = @intFromFloat(256 * interval.clamp(gamma_r));
-//     const g: u8 = @intFromFloat(256 * interval.clamp(gamma_g));
-//     const b: u8 = @intFromFloat(256 * interval.clamp(gamma_b));
-//
-//     try writer.print("{} {} {}\n", .{ r, g, b });
-// }

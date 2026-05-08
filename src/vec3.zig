@@ -95,6 +95,14 @@ pub fn Vec3(comptime T: type) type {
             };
         }
 
+        pub fn sampleSquare(rng: std.Random) Self {
+            return Self{
+                .x = utils.randomF64(rng) - 0.5,
+                .y = utils.randomF64(rng) - 0.5,
+                .z = 0,
+            };
+        }
+
         pub fn nearZero(self: Self) bool {
             const s = 1.0e-8;
             return (@abs(self.x) < s) and (@abs(self.y) < s) and (@abs(self.z) < s);
